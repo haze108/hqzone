@@ -11,17 +11,76 @@ UpdatePath=os.path.join(datapath,'Update')
 try: os.makedirs(UpdatePath)
 except: pass
 
-def OPENURL(url):
-        print "openurl = " + url
-        req = urllib2.Request(url)
-        req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.3) Gecko/2008092417 Firefox/3.0.3')
-        response = urllib2.urlopen(req)
+def OPENURL(url, mobile = False, q = False, verbose = True, timeout = 10, cookie = None, data = None, cookiejar = False, log = True, headers = [], type = '',ua = False,setCookie = []):
+    import urllib2 
+    UserAgent = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/34.0.1847.131 Safari/537.36'
+    if ua: UserAgent = ua
+    try:
+        if log:
+            print "Openurl = " + url
+        if cookie and not cookiejar:
+            import cookielib
+            cookie_file = os.path.join(os.path.join(datapath,'Cookies'), cookie+'.cookies')
+            cj = cookielib.LWPCookieJar()
+            if os.path.exists(cookie_file):
+                try:
+                    cj.load(cookie_file,True)
+                    for c in setCookie:
+                        cj.set_cookie(c)
+                except: cj.save(cookie_file,True)
+            else: cj.save(cookie_file,True)
+            opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
+        elif cookiejar:
+            import cookielib
+            cj = cookielib.LWPCookieJar()
+            opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
+        else:
+            opener = urllib2.build_opener()
+        if mobile:
+            opener.addheaders = [('User-Agent', 'Mozilla/5.0 (iPhone; U; CPU iPhone OS 4_0 like Mac OS X; en-us) AppleWebKit/532.9 (KHTML, like Gecko) Version/4.0.5 Mobile/8A293 Safari/6531.22.7')]
+        else:
+            opener.addheaders = [('User-Agent', UserAgent)]
+        for header in headers:
+            opener.addheaders.append(header)
+        if data:
+            if type == 'json': 
+                import json
+                data = json.dumps(data)
+                opener.addheaders.append(('Content-Type', 'application/json'))
+            else: data = urllib.urlencode(data)
+            response = opener.open(url, data, timeout)
+        else:
+            response = opener.open(url, timeout=timeout)
+        if cookie and not cookiejar:
+            cj.save(cookie_file,True)
         link=response.read()
         response.close()
-        link=pars.unescape(link)
-        link=urllib.unquote(link)
-        link=link.replace('\r','').replace('\n','').replace('\t','').replace('&nbsp;','')
+        opener.close()
+        #link = net(UserAgent).http_GET(url).content
+        link=link.replace('&#39;',"'").replace('&quot;','"').replace('&amp;',"&").replace("&#39;","'").replace('&lt;i&gt;','').replace("#8211;","-").replace('&lt;/i&gt;','').replace("&#8217;","'").replace('&amp;quot;','"').replace('&#215;','x').replace('&#038;','&').replace('&#8216;','').replace('&#8211;','').replace('&#8220;','').replace('&#8221;','').replace('&#8212;','')
+        link=link.replace('%3A',':').replace('%2F','/')
+        if q: q.put(link)
         return link
+    except Exception as e:
+        if verbose:
+            xbmc.executebuiltin("XBMC.Notification(Sorry!,Source Website is Down,3000,"+elogo+")")
+        xbmc.log('***********Website Error: '+str(e)+'**************', xbmc.LOGERROR)
+        xbmc.log('***********Url: '+url+' **************', xbmc.LOGERROR)
+        import traceback
+        traceback.print_exc()
+        link ='website down'
+        if q: q.put(link)
+        return link
+
+def setFile(path,content,force=False):
+    if os.path.exists(path) and not force:
+        return False
+    else:
+        try:
+            open(path,'w+').write(content)
+            return True
+        except: pass
+    return False
 
 
 user = selfAddon.getSetting('hqusername')
@@ -32,7 +91,7 @@ if user == '' or passw == '':
         try: os.remove(cookie_file)
         except: pass
     dialog = xbmcgui.Dialog()
-    ret = dialog.yesno('[COLOR=FF67cc33]MashUp[/COLOR]', 'Please set your HQZone credentials','or register if you dont have an account','at www.HQZone.Tv','Cancel','Login')
+    ret = dialog.yesno('[COLOR Blue]HQZone[/COLOR]', 'Please set your HQZone credentials','or register if you dont have an account','at www.HQZone.Tv','Cancel','Login')
     if ret == 1:
         keyb = xbmc.Keyboard('', 'Enter Username or Email')
         keyb.doModal()
@@ -164,14 +223,16 @@ def CheckForAutoUpdate(force = False):
     GitHubBranch  = 'master'
     UpdateVerFile = 'update'
     RunningFile   = 'running'
-    verCheck=True #main.CheckVersion()#Checks If Plugin Version is up to date
+    verCheck=True 
     if verCheck == True:
-        from resources.libs import autoupdate
+        import autoupdate
+        import time
         try:
-            print "Mashup auto update - started"
-            html=main.OPENURL('https://offshoregit.com/'+GitHubUser+'/'+GitHubRepo+'?files=1', mobile=True, verbose=False)
-        except: 
-        m = re.search("commits/master">(\d+) commit</a>",html,re.I)
+            print "HQZone auto update - started"
+            html=OPENURL('https://github.com/'+GitHubUser+'/'+GitHubRepo+'?files=1', mobile=True, verbose=False)
+        except:
+            html=''
+        m = re.search("View (\d+) commit",html,re.I)
         if m: gitver = int(m.group(1))
         else: gitver = 0
         UpdateVerPath = os.path.join(UpdatePath,UpdateVerFile)
@@ -179,14 +240,14 @@ def CheckForAutoUpdate(force = False):
         except: locver = 0
         RunningFilePath = os.path.join(UpdatePath, RunningFile)
         if locver < gitver and (not os.path.exists(RunningFilePath) or os.stat(RunningFilePath).st_mtime + 120 < time.time()) or force:
-            UpdateUrl = 'https://offshoregit.com/'+GitHubUser+'/'+GitHubRepo+'/repository/archive.zip'
+            UpdateUrl = 'https://github.com/'+GitHubUser+'/'+GitHubRepo+'/archive/'+GitHubBranch+'.zip'
             UpdateLocalName = GitHubRepo+'.zip'
             UpdateDirName   = GitHubRepo+'-'+GitHubBranch
             UpdateLocalFile = xbmc.translatePath(os.path.join(UpdatePath, UpdateLocalName))
-            main.setFile(RunningFilePath,'')
+            setFile(RunningFilePath,'')
             print "auto update - new update available ("+str(gitver)+")"
-            xbmc.executebuiltin("XBMC.Notification(MashUp Update,New Update detected,3000,"+''+")")
-            xbmc.executebuiltin("XBMC.Notification(MashUp Update,Updating...,3000,"+''+")")
+            xbmc.executebuiltin("XBMC.Notification(HQZone Update,New Update detected,3000,"")")
+            xbmc.executebuiltin("XBMC.Notification(HQZone Update,Updating...,3000,"")")
             try:os.remove(UpdateLocalFile)
             except:pass
             try: urllib.urlretrieve(UpdateUrl,UpdateLocalFile)
@@ -196,25 +257,22 @@ def CheckForAutoUpdate(force = False):
                 pluginsrc =  xbmc.translatePath(os.path.join(extractFolder,UpdateDirName))
                 if autoupdate.unzipAndMove(UpdateLocalFile,extractFolder,pluginsrc):
                     autoupdate.saveUpdateFile(UpdateVerPath,str(gitver))
-                    main.GA("Autoupdate",str(gitver)+" Successful")
-                    print "Mashup auto update - update install successful ("+str(gitver)+")"
-                    xbmc.executebuiltin("XBMC.Notification(MashUp Update,Successful,5000,"+main.slogo+")")
+                    print "HQZone auto update - update install successful ("+str(gitver)+")"
+                    xbmc.executebuiltin("XBMC.Notification(HQZone Update,Successful,5000,"")")
                     xbmc.executebuiltin("XBMC.Container.Refresh")
-                    if selfAddon.getSetting('autochan')=='true':
-                        xbmc.executebuiltin('XBMC.RunScript('+xbmc.translatePath(main.mashpath + '/resources/libs/changelog.py')+',Env)')
+
                 else:
-                    print "Mashup auto update - update install failed ("+str(gitver)+")"
-                    xbmc.executebuiltin("XBMC.Notification(MashUp Update,Failed,3000,"+main.elogo+")")
-                    main.GA("Autoupdate",str(gitver)+" Failed")
+                    print "HQZone auto update - update install failed ("+str(gitver)+")"
+                    xbmc.executebuiltin("XBMC.Notification(HQZone Update,Failed,3000,"")")
+
             else:
-                print "Mashup auto update - cannot find downloaded update ("+str(gitver)+")"
-                xbmc.executebuiltin("XBMC.Notification(MashUp Update,Failed,3000,"+main.elogo+")")
-                main.GA("Autoupdate",str(gitver)+" Repo problem")
+                print "HQZone auto update - cannot find downloaded update ("+str(gitver)+")"
+                xbmc.executebuiltin("XBMC.Notification(HQZone Update,Failed,3000,"")")
             try:os.remove(RunningFilePath)
             except:pass
         else:
-            if force: xbmc.executebuiltin("XBMC.Notification(MashUp Update,MashUp is up-to-date,3000,"+main.slogo+")")
-            print "Mashup auto update - Mashup is up-to-date ("+str(locver)+")"
+            if force: xbmc.executebuiltin("XBMC.Notification(HQZone Update,HQZone is up-to-date,3000,"")")
+            print "HQZone auto update - HQZone is up-to-date ("+str(locver)+")"
         return        
         
 
@@ -244,7 +302,7 @@ def addDir(name, url, mode, thumbImage):
 
         liz = xbmcgui.ListItem(name, iconImage='', thumbnailImage=thumbImage)
         liz.setInfo( type="Video", infoLabels={ "Title": name } )
-        liz.setProperty('fanart_image','')
+        liz.setProperty('fanart_image',art+"fanart.jpg")
 
         xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=u, listitem=liz,isFolder=True)
 
@@ -297,6 +355,8 @@ print "Name: "+str(name)
 
 
 if mode==None or url==None or len(url)<1:
+        import threading
+        threading.Thread(target=CheckForAutoUpdate).start()
         MAINHQ()
        
     
