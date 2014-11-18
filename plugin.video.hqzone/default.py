@@ -202,6 +202,7 @@ def get_link(murl):
 
     else:
         swf='http://www.hqzone.tv/forums/jwplayer/jwplayer.flash.swf'
+        print link
         streamer=re.findall("file: '([^']+)',",link)[0]
         return streamer.replace('redirect','live')+' swfUrl='+swf+' pageUrl='+murl+' live=true timeout=20 token=WY846p1E1g15W7s'
     
@@ -210,8 +211,8 @@ def PLAYLINK(mname,murl,thumb):
         stream_url = get_link(murl)     
         playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
         playlist.clear()
-        listitem = xbmcgui.ListItem(thumbnailImage=thumb)
-        liz=xbmcgui.ListItem(mname, iconImage=thumb, thumbnailImage=thumb)
+        infoL={'Title': mname, 'Genre': 'Live'} 
+        listitem = xbmcgui.ListItem(mname, thumbnailImage=thumb)
         playlist.add(stream_url,listitem)
         xbmcPlayer = xbmc.Player()
         xbmcPlayer.play(playlist)
