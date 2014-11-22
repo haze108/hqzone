@@ -211,7 +211,6 @@ def PLAYLINK(mname,murl,thumb):
         stream_url = get_link(murl)     
         playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
         playlist.clear()
-        infoL={'Title': mname, 'Genre': 'Live'} 
         listitem = xbmcgui.ListItem(mname, thumbnailImage=thumb)
         playlist.add(stream_url,listitem)
         xbmcPlayer = xbmc.Player()
@@ -278,7 +277,7 @@ def CheckForAutoUpdate(force = False):
         
 
 def addPlay(name,url,mode,iconimage):
-        u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)+"&name="+urllib.quote_plus(name)
+        u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)+"&name="+urllib.quote_plus(name)+"&iconimage=" + urllib.quote_plus(iconimage)
         ok=True
         liz=xbmcgui.ListItem(name, iconImage='', thumbnailImage=iconimage)
         liz.setInfo( type="Video", infoLabels={ "Title": name } )
@@ -293,19 +292,22 @@ def addLink(name,url,iconimage):
     liz.setProperty('fanart_image',art+"fanart.jpg")
     return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=url,listitem=liz)
 
-def addDir(name, url, mode, thumbImage):
+def addDir(name, url, mode, iconimage):
 
         u  = sys.argv[0]
 
         u += "?url="  + urllib.quote_plus(url)
         u += "&mode=" + str(mode)
         u += "&name=" + urllib.quote_plus(name)
+        u += "&iconimage=" + urllib.quote_plus(iconimage)
 
-        liz = xbmcgui.ListItem(name, iconImage='', thumbnailImage=thumbImage)
+        liz = xbmcgui.ListItem(name, iconImage='', thumbnailImage=iconimage)
         liz.setInfo( type="Video", infoLabels={ "Title": name } )
         liz.setProperty('fanart_image',art+"fanart.jpg")
 
         xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=u, listitem=liz,isFolder=True)
+
+
 
 
 
